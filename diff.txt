@@ -1,0 +1,661 @@
+diff --git a/front/src/app/components/exam-form/exam-form.component.ts b/front/src/app/components/exam-form/exam-form.component.ts
+index f104372..7c893de 100644
+--- a/front/src/app/components/exam-form/exam-form.component.ts
++++ b/front/src/app/components/exam-form/exam-form.component.ts
+@@ -1,6 +1,33 @@
+ import { Component, EventEmitter, Output, inject } from '@angular/core';
+-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
++import {
++  FormBuilder,
++  FormControl,
++  FormGroup,
++  ReactiveFormsModule,
++  Validators,
++} from '@angular/forms';
+ import { Exam, ExamService } from '../../services/exam.service';
++import { ToastService } from '../../shared/toast/toast.service';
++
++interface ExamFormValue {
++  student: {
++    first_name: string;
++    last_name: string;
++  };
++  meeting_point: string;
++  date: string;
++  status: Exam['status'];
++}
++
++type ExamFormType = FormGroup<{
++  student: FormGroup<{
++    first_name: FormControl<string>;
++    last_name: FormControl<string>;
++  }>;
++  meeting_point: FormControl<string>;
++  date: FormControl<string>;
++  status: FormControl<Exam['status']>;
++}>;
+ 
+ @Component({
+   selector: 'app-exam-form',
+@@ -25,9 +52,15 @@ import { Exam, ExamService } from '../../services/exam.service';
+             placeholder="Prénom de l'étudiant"
+           />
+           @if (examForm.get('student.first_name')?.invalid &&
+-          examForm.get('student.first_name')?.touched) {
++          examForm.get('student.first_name')?.touched) { @if
++          (examForm.get('student.first_name')?.errors?.['required']) {
+           <p class="mt-1 text-sm text-red-600">Le prénom est requis</p>
+-          }
++          } @else if (examForm.get('student.first_name')?.errors?.['minlength'])
++          {
++          <p class="mt-1 text-sm text-red-600">
++            Le prénom doit contenir au moins 2 caractères
++          </p>
++          } }
+         </div>
+ 
+         <div class="form-group">
+@@ -45,9 +78,15 @@ import { Exam, ExamService } from '../../services/exam.service';
+             placeholder="Nom de l'étudiant"
+           />
+           @if (examForm.get('student.last_name')?.invalid &&
+-          examForm.get('student.last_name')?.touched) {
++          examForm.get('student.last_name')?.touched) { @if
++          (examForm.get('student.last_name')?.errors?.['required']) {
+           <p class="mt-1 text-sm text-red-600">Le nom est requis</p>
+-          }
++          } @else if (examForm.get('student.last_name')?.errors?.['minlength'])
++          {
++          <p class="mt-1 text-sm text-red-600">
++            Le nom doit contenir au moins 2 caractères
++          </p>
++          } }
+         </div>
+       </div>
+ 
+@@ -124,44 +163,90 @@ import { Exam, ExamService } from '../../services/exam.service';
+ export class ExamFormComponent {
+   private fb = inject(FormBuilder);
+   private examService = inject(ExamService);
++  private toastService = inject(ToastService);
+ 
+   @Output() examCreated = new EventEmitter<void>();
+   @Output() cancel = new EventEmitter<void>();
+ 
+   isSubmitting = false;
+ 
+-  examForm = this.fb.group({
+-    student: this.fb.group({
+-      first_name: ['', Validators.required],
+-      last_name: ['', Validators.required],
+-    }),
+-    meeting_point: [''],
+-    date: [''],
+-    status: ['A organiser'],
+-  });
++  examForm: ExamFormType = this.fb.nonNullable.group(
++    {
++      student: this.fb.nonNullable.group({
++        first_name: ['', [Validators.required, Validators.minLength(2)]],
++        last_name: ['', [Validators.required, Validators.minLength(2)]],
++      }),
++      meeting_point: [''],
++      date: [''],
++      status: ['A organiser' as Exam['status']],
++    },
++    {
++      updateOn: 'blur',
++    }
++  );
+ 
+   async onSubmit() {
+-    if (this.examForm.valid) {
+-      this.isSubmitting = true;
+-      try {
+-        const formValue = this.examForm.value;
+-        const exam: Exam = {
+-          student: {
+-            first_name: formValue.student?.first_name ?? '',
+-            last_name: formValue.student?.last_name ?? '',
+-          },
+-          meeting_point: formValue.meeting_point ?? '',
+-          date: formValue.date ?? new Date().toISOString(),
+-          status: (formValue.status as Exam['status']) ?? 'A organiser',
+-        };
+-
+-        const success = await this.examService.createExam(exam);
+-        if (success) {
+-          this.examCreated.emit();
+-        }
+-      } finally {
+-        this.isSubmitting = false;
++    if (!this.examForm.valid) {
++      this.markFormGroupTouched(this.examForm);
++      this.toastService.show(
++        'Veuillez corriger les erreurs du formulaire',
++        'error'
++      );
++      return;
++    }
++
++    this.isSubmitting = true;
++    try {
++      const formValue: ExamFormValue = this.examForm.getRawValue();
++
++      const exam: Exam = {
++        student: {
++          first_name: formValue.student.first_name.trim(),
++          last_name: formValue.student.last_name.trim(),
++        },
++        meeting_point: formValue.meeting_point?.trim() || '',
++        date: formValue.date || new Date().toISOString(),
++        status: formValue.status,
++      };
++
++      const success = await this.examService.createExam(exam);
++      if (success) {
++        this.resetForm();
++        this.examCreated.emit();
+       }
++    } catch (error) {
++      console.error('Erreur détaillée:', error);
++      let errorMessage = "Erreur lors de la création de l'examen";
++
++      if (error instanceof Error) {
++        errorMessage += `: ${error.message}`;
++      }
++
++      this.toastService.show(errorMessage, 'error');
++    } finally {
++      this.isSubmitting = false;
+     }
+   }
++
++  private markFormGroupTouched(formGroup: FormGroup): void {
++    Object.values(formGroup.controls).forEach((control) => {
++      control.markAsTouched();
++
++      if (control instanceof FormGroup) {
++        this.markFormGroupTouched(control);
++      }
++    });
++  }
++
++  private resetForm(): void {
++    this.examForm.reset({
++      student: {
++        first_name: '',
++        last_name: '',
++      },
++      meeting_point: '',
++      date: '',
++      status: 'A organiser' as Exam['status'],
++    });
++  }
+ }
+diff --git a/front/src/app/components/exam-list/exam-list.component.ts b/front/src/app/components/exam-list/exam-list.component.ts
+index 604b4c7..f1af1ae 100644
+--- a/front/src/app/components/exam-list/exam-list.component.ts
++++ b/front/src/app/components/exam-list/exam-list.component.ts
+@@ -1,22 +1,21 @@
+-import { Component, OnInit, inject } from '@angular/core';
++import { Component, OnInit, computed, inject } from '@angular/core';
+ import { ExamService } from '../../services/exam.service';
+ import { DatePipe } from '@angular/common';
+ import { ModalComponent } from '../../shared/modal/modal.component';
+ import { ExamFormComponent } from '../exam-form/exam-form.component';
++import { StatusDisplayPipe } from '../../pipes/status-display.pipe';
+ 
+ @Component({
+   selector: 'app-exam-list',
+   standalone: true,
+-  imports: [DatePipe, ModalComponent, ExamFormComponent],
++  imports: [DatePipe, ModalComponent, ExamFormComponent, StatusDisplayPipe],
+   template: `
+     <div class="max-w-7xl mx-auto p-6">
+       <!-- Header -->
+       <div class="flex justify-between items-center mb-8">
+         <div>
+           <h1 class="text-2xl font-semibold text-gray-900">Mes examens</h1>
+-          <p class="text-gray-900 mt-1">
+-            {{ examService.exams().length }} examens à venir
+-          </p>
++          <p class="text-gray-900 mt-1">{{ totalExams() }} examens à venir</p>
+         </div>
+         <button
+           (click)="showModal = true"
+@@ -27,9 +26,30 @@ import { ExamFormComponent } from '../exam-form/exam-form.component';
+         </button>
+       </div>
+ 
++      <!-- Loading State -->
++      @if (examService.loading()) {
++      <div class="flex justify-center items-center py-8">
++        <div
++          class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"
++        ></div>
++      </div>
++      }
++
++      <!-- Empty State -->
++      @if (!examService.loading() && examService.exams().length === 0) {
++      <div class="bg-gray-50 rounded-2xl p-8 text-center">
++        <p class="text-gray-600">
++          Aucun examen à afficher. Créez votre premier examen en cliquant sur
++          "Organiser un examen".
++        </p>
++      </div>
++      }
++
+       <!-- Exam List -->
++      @if (!examService.loading() && examService.exams().length > 0) {
+       <div class="space-y-3">
+-        @for (exam of examService.exams(); track exam.student.first_name) {
++        @for (exam of examService.exams(); track exam.student.first_name +
++        exam.student.last_name + (exam.date || '')) {
+         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+           <div class="grid grid-cols-5 gap-4 items-center">
+             <!-- Student -->
+@@ -118,7 +138,6 @@ import { ExamFormComponent } from '../exam-form/exam-form.component';
+               </span>
+             </div>
+ 
+-            <!-- Status -->
+             <!-- Status -->
+             <div class="flex justify-end">
+               <span
+@@ -187,13 +206,15 @@ import { ExamFormComponent } from '../exam-form/exam-form.component';
+                   </svg>
+                   }
+                 </span>
+-                {{ getStatusDisplay(exam.status) }}
++                {{ exam.status | statusDisplay }}
+               </span>
+             </div>
+           </div>
+         </div>
+         }
+       </div>
++      }
++
+       <!-- Modal -->
+       <app-modal
+         [isOpen]="showModal"
+@@ -218,6 +239,7 @@ import { ExamFormComponent } from '../exam-form/exam-form.component';
+ export class ExamListComponent implements OnInit {
+   examService = inject(ExamService);
+   showModal = false;
++  totalExams = computed(() => this.examService.exams().length);
+ 
+   ngOnInit() {
+     this.examService.loadExams();
+@@ -241,14 +263,4 @@ export class ExamListComponent implements OnInit {
+       statusClasses[status as keyof typeof statusClasses] || ''
+     }`;
+   }
+-
+-  getStatusDisplay(status: string): string {
+-    const statusMap: Record<string, string> = {
+-      Confirmé: 'Confirmé',
+-      Annulé: 'Annulé',
+-      'Recherche de place': 'En recherche de place',
+-      'A organiser': 'À organiser',
+-    };
+-    return statusMap[status] || status;
+-  }
+ }
+diff --git a/front/src/app/services/exam.service.ts b/front/src/app/services/exam.service.ts
+index 558558b..ce3c7d8 100644
+--- a/front/src/app/services/exam.service.ts
++++ b/front/src/app/services/exam.service.ts
+@@ -1,7 +1,8 @@
+ import { Injectable, inject } from '@angular/core';
+-import { HttpClient } from '@angular/common/http';
++import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+ import { ToastService } from '../shared/toast/toast.service';
+ import { signal } from '@angular/core';
++import { catchError, firstValueFrom, throwError } from 'rxjs';
+ 
+ export interface Student {
+   first_name: string;
+@@ -20,35 +21,111 @@ export interface Exam {
+ })
+ export class ExamService {
+   private http = inject(HttpClient);
+-  private toast = inject(ToastService);
++  private toastService = inject(ToastService);
+ 
+-  exams = signal<Exam[]>([]);
+-  loading = signal(false);
++  private examsSignal = signal<Exam[]>([]);
++  private loadingSignal = signal(false);
++
++  public exams = this.examsSignal.asReadonly();
++  public loading = this.loadingSignal.asReadonly();
+ 
+   private apiUrl = 'http://localhost:3000/api/exams';
+ 
++  showToast(
++    message: string,
++    type: 'success' | 'error' | 'info' = 'info'
++  ): void {
++    this.toastService.show(message, type);
++  }
++
++  private handleError(error: HttpErrorResponse) {
++    let errorMessage = '';
++
++    if (error.status === 0) {
++      errorMessage =
++        'Problème de connexion au serveur. Vérifiez votre connexion internet.';
++    } else if (error.status === 400) {
++      errorMessage =
++        error.error?.message || 'Les données envoyées sont invalides.';
++    } else if (error.status === 404) {
++      errorMessage = 'La ressource demandée est introuvable.';
++    } else if (error.status === 500) {
++      errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
++    } else {
++      errorMessage = `Erreur inattendue: ${
++        error.error?.message || error.statusText
++      }`;
++    }
++
++    this.showToast(errorMessage, 'error');
++    return throwError(() => new Error(errorMessage));
++  }
++
+   async loadExams() {
++    if (this.loadingSignal()) return;
++
+     try {
+-      this.loading.set(true);
+-      const data = await this.http.get<Exam[]>(this.apiUrl).toPromise();
+-      this.exams.set(data || []);
++      this.loadingSignal.set(true);
++      const response = this.http
++        .get<Exam[]>(this.apiUrl)
++        .pipe(catchError((error) => this.handleError(error)));
++
++      const data = await firstValueFrom(response);
++      this.examsSignal.set(data || []);
+     } catch (error) {
+-      this.toast.show('Erreur lors du chargement des examens', 'error');
+-      console.error(error);
++      console.error('Erreur lors du chargement des examens:', error);
+     } finally {
+-      this.loading.set(false);
++      this.loadingSignal.set(false);
++    }
++  }
++
++  validateExam(exam: Exam): { valid: boolean; errors: string[] } {
++    const errors: string[] = [];
++
++    if (!exam.student.first_name || exam.student.first_name.trim().length < 2) {
++      errors.push('Le prénom doit contenir au moins 2 caractères');
++    }
++
++    if (!exam.student.last_name || exam.student.last_name.trim().length < 2) {
++      errors.push('Le nom doit contenir au moins 2 caractères');
++    }
++
++    if (exam.date && !this.isValidISODateString(exam.date)) {
++      errors.push('Le format de la date est invalide');
++    }
++
++    return {
++      valid: errors.length === 0,
++      errors,
++    };
++  }
++
++  private isValidISODateString(dateString: string): boolean {
++    try {
++      return !isNaN(Date.parse(dateString));
++    } catch {
++      return false;
+     }
+   }
+ 
+   async createExam(exam: Exam) {
++    const validation = this.validateExam(exam);
++    if (!validation.valid) {
++      this.showToast(validation.errors.join('. '), 'error');
++      return false;
++    }
++
+     try {
+-      await this.http.post<Exam>(this.apiUrl, exam).toPromise();
++      const response = this.http
++        .post<Exam>(this.apiUrl, exam)
++        .pipe(catchError((error) => this.handleError(error)));
++
++      await firstValueFrom(response);
+       await this.loadExams();
+-      this.toast.show('Examen créé avec succès !', 'success');
++      this.showToast('Examen créé avec succès !', 'success');
+       return true;
+     } catch (error) {
+-      this.toast.show("Erreur lors de la création de l'examen", 'error');
+-      console.error(error);
++      console.error('Erreur lors de la création:', error);
+       return false;
+     }
+   }
+diff --git a/front/src/app/shared/modal/modal.component.ts b/front/src/app/shared/modal/modal.component.ts
+index 07681d4..fca3d09 100644
+--- a/front/src/app/shared/modal/modal.component.ts
++++ b/front/src/app/shared/modal/modal.component.ts
+@@ -1,10 +1,10 @@
+-import { Component, Input, Output, EventEmitter } from '@angular/core';
++import { Component, input, output } from '@angular/core';
+ 
+ @Component({
+   selector: 'app-modal',
+   standalone: true,
+   template: `
+-    @if (isOpen) {
++    @if (isOpen()) {
+     <div
+       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+       (click)="closeModal.emit()"
+@@ -15,7 +15,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
+       >
+         <!-- Header -->
+         <div class="flex justify-between items-center mb-6">
+-          <h2 class="text-xl font-semibold text-gray-900">{{ title }}</h2>
++          <h2 class="text-xl font-semibold text-gray-900">{{ title() }}</h2>
+           <button
+             class="text-gray-400 hover:text-gray-600"
+             (click)="closeModal.emit()"
+@@ -47,7 +47,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
+   `,
+ })
+ export class ModalComponent {
+-  @Input() isOpen = false;
+-  @Input() title = '';
+-  @Output() closeModal = new EventEmitter<void>();
++  isOpen = input(false);
++  title = input('');
++  closeModal = output<void>();
+ }
+diff --git a/front/src/app/shared/toast/toast.component.ts b/front/src/app/shared/toast/toast.component.ts
+index 1bc8ad2..b2acd6f 100644
+--- a/front/src/app/shared/toast/toast.component.ts
++++ b/front/src/app/shared/toast/toast.component.ts
+@@ -1,19 +1,86 @@
+ import { Component, inject } from '@angular/core';
+-import { ToastService } from './toast.service';
++import { ToastService, ToastType } from './toast.service';
+ 
+ @Component({
+   selector: 'app-toast',
+   standalone: true,
+   template: `
+-    @if (toastService.toast(); as toast) {
+-    <div
+-      class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white animate-fade-in"
+-      [class]="getToastClass(toast.type)"
+-      role="alert"
+-    >
+-      {{ toast.message }}
++    <!-- Support for multiple toasts -->
++    <div class="fixed bottom-4 right-4 space-y-2 z-50">
++      @for(toast of toastService.toasts(); track toast.id) {
++      <div
++        class="p-4 rounded-lg shadow-lg text-white animate-fade-in flex items-center"
++        [class]="getToastClass(toast.type)"
++        role="alert"
++      >
++        <!-- Icon based on toast type -->
++        <span class="mr-2">
++          @if (toast.type === 'success') {
++          <svg
++            xmlns="http://www.w3.org/2000/svg"
++            class="h-5 w-5"
++            viewBox="0 0 20 20"
++            fill="currentColor"
++          >
++            <path
++              fill-rule="evenodd"
++              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
++              clip-rule="evenodd"
++            />
++          </svg>
++          } @else if (toast.type === 'error') {
++          <svg
++            xmlns="http://www.w3.org/2000/svg"
++            class="h-5 w-5"
++            viewBox="0 0 20 20"
++            fill="currentColor"
++          >
++            <path
++              fill-rule="evenodd"
++              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
++              clip-rule="evenodd"
++            />
++          </svg>
++          } @else {
++          <svg
++            xmlns="http://www.w3.org/2000/svg"
++            class="h-5 w-5"
++            viewBox="0 0 20 20"
++            fill="currentColor"
++          >
++            <path
++              fill-rule="evenodd"
++              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z"
++              clip-rule="evenodd"
++            />
++          </svg>
++          }
++        </span>
++
++        <span>{{ toast.message }}</span>
++
++        <!-- Close button -->
++        <button
++          class="ml-3 text-white opacity-70 hover:opacity-100 focus:outline-none"
++          (click)="dismissToast(toast.id)"
++          aria-label="Fermer"
++        >
++          <svg
++            xmlns="http://www.w3.org/2000/svg"
++            class="h-4 w-4"
++            viewBox="0 0 20 20"
++            fill="currentColor"
++          >
++            <path
++              fill-rule="evenodd"
++              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
++              clip-rule="evenodd"
++            />
++          </svg>
++        </button>
++      </div>
++      }
+     </div>
+-    }
+   `,
+   styles: [
+     `
+@@ -36,13 +103,17 @@ import { ToastService } from './toast.service';
+ export class ToastComponent {
+   toastService = inject(ToastService);
+ 
+-  getToastClass(type: string): string {
+-    const baseClasses = 'min-w-[200px] z-50';
++  getToastClass(type: ToastType): string {
++    const baseClasses = 'min-w-[200px]';
+     const typeClasses = {
+       success: 'bg-green-500',
+       error: 'bg-red-500',
+       info: 'bg-blue-500',
+     };
+-    return `${baseClasses} ${typeClasses[type as keyof typeof typeClasses]}`;
++    return `${baseClasses} ${typeClasses[type]}`;
++  }
++
++  dismissToast(id: number): void {
++    this.toastService.remove(id);
+   }
+ }
+diff --git a/front/src/app/shared/toast/toast.service.ts b/front/src/app/shared/toast/toast.service.ts
+index 8206020..b0096d4 100644
+--- a/front/src/app/shared/toast/toast.service.ts
++++ b/front/src/app/shared/toast/toast.service.ts
+@@ -1,21 +1,47 @@
+-import { Injectable, signal } from '@angular/core';
++import { Injectable, signal, computed } from '@angular/core';
+ 
+ export type ToastType = 'success' | 'error' | 'info';
+ 
+ export interface Toast {
+   message: string;
+   type: ToastType;
++  id: number;
+ }
+ 
+ @Injectable({
+   providedIn: 'root',
+ })
+ export class ToastService {
+-  private toastSignal = signal<Toast | null>(null);
+-  toast = this.toastSignal.asReadonly();
++  private lastId = 0;
++  private toastsSignal = signal<Toast[]>([]);
++  public toasts = this.toastsSignal.asReadonly();
++  public toast = computed(() => {
++    const toasts = this.toastsSignal();
++    return toasts.length > 0 ? toasts[toasts.length - 1] : null;
++  });
+ 
+-  show(message: string, type: ToastType = 'info'): void {
+-    this.toastSignal.set({ message, type });
+-    setTimeout(() => this.toastSignal.set(null), 3000);
++  show(
++    message: string,
++    type: ToastType = 'info',
++    duration: number = 3000
++  ): number {
++    const id = ++this.lastId;
++    const newToast: Toast = { message, type, id };
++
++    this.toastsSignal.update((toasts) => [...toasts, newToast]);
++
++    setTimeout(() => this.remove(id), duration);
++
++    return id;
++  }
++
++  remove(id: number): void {
++    this.toastsSignal.update((toasts) =>
++      toasts.filter((toast) => toast.id !== id)
++    );
++  }
++
++  clear(): void {
++    this.toastsSignal.set([]);
+   }
+ }

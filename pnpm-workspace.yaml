@@ -1,0 +1,6 @@
+packages:
+  - "back-app"
+  - "front-app"
+  - "back-app-e2e"
+  - "front-app-e2e"
+  - "packages/*"
