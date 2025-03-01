@@ -1,6 +1,8 @@
 # Test Technique d'En Voiture Simone sur le développement frontend
 
-![](https://www.envoituresimone.com/packs/media/images/logo-799cc6b9049e7e56d573120ec02c5eb5.svg)
+[![CI Tests](https://github.com/sahnas/evs/actions/workflows/ci.yml/badge.svg?branch=refactor)](https://github.com/sahnas/evs/actions/workflows/ci.yml)
+
+![Logo En Voiture Simone](https://www.envoituresimone.com/packs/media/images/logo-799cc6b9049e7e56d573120ec02c5eb5.svg)
 
 ## Objectif
 
@@ -15,7 +17,7 @@ Le but de ce test sera de servir de base de discussion à l'entretien technique,
 
 L'objectif est de faire une application minimale de gestions des examens à destination de nos enseignants.
 
-#### Fonctionnalités de l'application front-end
+### Fonctionnalités de l'application front-end
 
 1. **Affichage de la liste des examens :**
    - Une page ou une vue qui affiche la liste des items récupérés du serveur via l'endpoint `GET /api/exams`.
@@ -24,7 +26,7 @@ L'objectif est de faire une application minimale de gestions des examens à dest
 
 Le rendu devra s'inspirer du mockup suivant :
 
-![](exam_app.png)
+![Screenshot of the exam application interface](exam_app.png)
 
 ### Conteneurisation avec Docker
 

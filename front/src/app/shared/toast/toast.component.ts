@@ -1,11 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { ToastService, ToastType } from './toast.service';
+import { ToastService, ToastType } from '../../services/toast/toast.service';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
   template: `
-    <!-- Support for multiple toasts -->
     <div class="fixed bottom-4 right-4 space-y-2 z-50">
       @for(toast of toastService.toasts(); track toast.id) {
       <div
@@ -13,7 +12,6 @@ import { ToastService, ToastType } from './toast.service';
         [class]="getToastClass(toast.type)"
         role="alert"
       >
-        <!-- Icon based on toast type -->
         <span class="mr-2">
           @if (toast.type === 'success') {
           <svg
@@ -59,7 +57,6 @@ import { ToastService, ToastType } from './toast.service';
 
         <span>{{ toast.message }}</span>
 
-        <!-- Close button -->
         <button
           class="ml-3 text-white opacity-70 hover:opacity-100 focus:outline-none"
           (click)="dismissToast(toast.id)"

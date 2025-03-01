@@ -1,5 +1,5 @@
 import { Route } from '@angular/router';
-import { ExamListComponent } from './components/exam-list/exam-list.component';
+import { ExamListComponent } from './components/exam/exam-list/exam-list.component';
 
 export const appRoutes: Route[] = [
   { path: '', redirectTo: 'exams', pathMatch: 'full' },

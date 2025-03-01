@@ -8,7 +8,6 @@ import { ToastComponent } from './shared/toast/toast.component';
   imports: [RouterOutlet, ToastComponent],
   template: `
     <div class="min-h-screen bg-gray-50">
-      <!-- Header avec logo -->
       <header class="bg-white shadow-sm">
         <div class="max-w-6xl mx-auto px-4 py-4">
           <img
@@ -19,13 +18,11 @@ import { ToastComponent } from './shared/toast/toast.component';
         </div>
       </header>
 
-      <!-- Contenu principal -->
       <main>
         <router-outlet />
       </main>
     </div>
 
-    <!-- Toast notifications -->
     <app-toast />
   `,
   styles: [

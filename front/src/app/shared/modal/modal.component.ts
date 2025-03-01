@@ -1,53 +1,82 @@
-import { Component, input, output } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 
 @Component({
   selector: 'app-modal',
   standalone: true,
   template: `
-    @if (isOpen()) {
-    <div
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      (click)="closeModal.emit()"
-    >
+    @if (isOpen) {
+    <div class="fixed inset-0 z-50 overflow-auto bg-smoke-light flex">
+      <button
+        class="fixed inset-0 bg-black opacity-50 border-0 p-0 m-0"
+        (click)="onClose()"
+        aria-label="Close modal"
+      ></button>
+
       <div
-        class="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-xl"
-        (click)="$event.stopPropagation()"
+        class="relative bg-white w-full max-w-md m-auto rounded-lg shadow-lg"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-labelledby]="title ? 'modal-title' : null"
       >
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold text-gray-900">{{ title() }}</h2>
-          <button
-            class="text-gray-400 hover:text-gray-600"
-            (click)="closeModal.emit()"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        <div class="p-4 border-b">
+          <div class="flex items-center justify-between">
+            @if (title) {
+            <h3 id="modal-title" class="text-lg font-medium text-gray-900">
+              {{ title }}
+            </h3>
+            } @else {
+            <div></div>
+            }
+            <button
+              (click)="onClose()"
+              class="text-gray-400 hover:text-gray-500 focus:outline-none"
+              aria-label="Close"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <svg
+                class="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <!-- Content -->
-        <div class="modal-content">
+        <div class="p-4">
           <ng-content></ng-content>
         </div>
+
+        @if (showFooter) {
+        <div class="p-4 border-t">
+          <ng-content select="[footer]"></ng-content>
+        </div>
+        }
       </div>
     </div>
     }
   `,
+  styles: [
+    `
+      .bg-smoke-light {
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+    `,
+  ],
 })
 export class ModalComponent {
-  isOpen = input(false);
-  title = input('');
-  closeModal = output<void>();
+  @Input() isOpen = false;
+  @Input() title?: string;
+  @Input() showFooter = false;
+  @Output() closeModal = new EventEmitter<void>();
+
+  onClose(): void {
+    this.closeModal.emit();
+  }
 }
