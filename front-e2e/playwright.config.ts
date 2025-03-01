@@ -25,10 +25,11 @@ export default defineConfig({
   },
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm exec nx run front:serve',
+    command: 'pnpm start:back & pnpm start:front',
     url: 'http://localhost:4200',
     reuseExistingServer: !process.env['CI'],
     cwd: workspaceRoot,
+    timeout: 60000,
   },
   projects: [
     {
@@ -36,15 +37,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
 
-    {
+    // Uncomment for Firefox support
+    /* {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-    },
+    }, */
 
-    {
+    // Uncomment for WebKit support
+    /* {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-    },
+    }, */
 
     // Uncomment for mobile browsers support
     /* {

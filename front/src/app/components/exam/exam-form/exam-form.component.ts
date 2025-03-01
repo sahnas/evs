@@ -6,8 +6,9 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Exam, ExamService } from '../../services/exam.service';
-import { ToastService } from '../../shared/toast/toast.service';
+import { Exam, ExamStatus } from '../../../models/exam.model';
+import { ExamService } from '../../../services/exam/exam.service';
+import { ToastService } from '../../../services/toast/toast.service';
 
 interface ExamFormValue {
   student: {
@@ -16,7 +17,7 @@ interface ExamFormValue {
   };
   meeting_point: string;
   date: string;
-  status: Exam['status'];
+  status: ExamStatus;
 }
 
 type ExamFormType = FormGroup<{
@@ -26,7 +27,7 @@ type ExamFormType = FormGroup<{
   }>;
   meeting_point: FormControl<string>;
   date: FormControl<string>;
-  status: FormControl<Exam['status']>;
+  status: FormControl<ExamStatus>;
 }>;
 
 @Component({
@@ -35,7 +36,6 @@ type ExamFormType = FormGroup<{
   imports: [ReactiveFormsModule],
   template: `
     <form [formGroup]="examForm" (ngSubmit)="onSubmit()" class="space-y-6">
-      <!-- Section Étudiant -->
       <div formGroupName="student" class="space-y-4">
         <div class="form-group">
           <label
@@ -90,7 +90,6 @@ type ExamFormType = FormGroup<{
         </div>
       </div>
 
-      <!-- Lieu de rendez-vous -->
       <div class="form-group">
         <label
           for="meetingPoint"
@@ -107,7 +106,6 @@ type ExamFormType = FormGroup<{
         />
       </div>
 
-      <!-- Date et heure -->
       <div class="form-group">
         <label for="date" class="block text-sm font-medium text-gray-700 mb-1">
           Date et heure
@@ -120,7 +118,6 @@ type ExamFormType = FormGroup<{
         />
       </div>
 
-      <!-- Statut -->
       <div class="form-group">
         <label
           for="status"
@@ -140,11 +137,10 @@ type ExamFormType = FormGroup<{
         </select>
       </div>
 
-      <!-- Actions -->
       <div class="flex justify-end gap-3 pt-4">
         <button
           type="button"
-          (click)="cancel.emit()"
+          (click)="cancelForm.emit()"
           class="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors duration-200"
         >
           Annuler
@@ -166,7 +162,7 @@ export class ExamFormComponent {
   private toastService = inject(ToastService);
 
   @Output() examCreated = new EventEmitter<void>();
-  @Output() cancel = new EventEmitter<void>();
+  @Output() cancelForm = new EventEmitter<void>();
 
   isSubmitting = false;
 
@@ -178,7 +174,7 @@ export class ExamFormComponent {
       }),
       meeting_point: [''],
       date: [''],
-      status: ['A organiser' as Exam['status']],
+      status: ['A organiser' as ExamStatus],
     },
     {
       updateOn: 'blur',
@@ -246,7 +242,7 @@ export class ExamFormComponent {
       },
       meeting_point: '',
       date: '',
-      status: 'A organiser' as Exam['status'],
+      status: 'A organiser' as ExamStatus,
     });
   }
 }

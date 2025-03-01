@@ -3,14 +3,14 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "serve:all": "nx run-many --target=serve --projects=front,back --parallel",
-    "build:all": "nx run-many --target=build --projects=front,back --parallel",
-    "start:back": "nx build back && node dist/back/main.js",
-    "start:front": "nx build front --configuration=production && npx http-server dist/front",
-    "start:prod": "pnpm run build:all && concurrently \"pnpm run start:back\" \"pnpm run serve:front\"",
-    "lint:all": "nx run-many --target=lint --all",
-    "test:all": "nx run-many --target=test --all",
-    "test:e2e": "nx run-many --target=e2e --projects=front-e2e"
+    "serve:all": "nx run-many --target=serve --projects=front,back --parallel --no-cloud",
+    "build:all": "nx run-many --target=build --projects=front,back --parallel --no-cloud",
+    "start:back": "nx build back --no-cloud && node dist/back/main.js",
+    "start:front": "nx serve front --no-cloud",
+    "start:prod": "pnpm run build:all && concurrently \"pnpm run start:back\" \"pnpm run start:front\"",
+    "lint:all": "nx run-many --target=lint --all --no-cloud",
+    "test:all": "nx run-many --target=test --all --no-cloud",
+    "test:e2e": "nx run-many --target=e2e --projects=front-e2e --no-cloud"
   },
   "type": "commonjs",
   "private": true,

@@ -28,6 +28,8 @@ module.exports = [
   },
   {
     files: ['**/*.html'],
-    rules: {},
+    rules: {
+      '@typescript-eslint/ban-ts-comment': 'off',
+    },
   },
 ];
