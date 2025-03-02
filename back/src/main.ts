@@ -8,7 +8,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const corsOptions: CorsOptions = {
-    origin: ['http://localhost:4200', 'http://localhost:80'],
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [process.env.FRONTEND_URL || 'https://evs-front.onrender.com']
+        : ['http://localhost:4200', 'http://localhost'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   };

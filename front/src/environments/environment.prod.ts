@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiBaseUrl: '/api',
+  apiBaseUrl: 'https://evs-rrar.onrender.com/api',
   toastDuration: 3000,
 };

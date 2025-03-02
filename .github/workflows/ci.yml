@@ -80,3 +80,15 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  deploy:
+    name: Deploy to Render
+    needs: [quality-check, e2e-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Backend to Render
+        run: curl "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
+
+      - name: Deploy Frontend to Render
+        run: curl "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}"

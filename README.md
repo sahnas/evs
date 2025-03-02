@@ -1,6 +1,6 @@
 # Test Technique d'En Voiture Simone sur le développement frontend
 
-[![CI Tests](https://github.com/sahnas/evs/actions/workflows/ci.yml/badge.svg?branch=refactor)](https://github.com/sahnas/evs/actions/workflows/ci.yml)
+[![CI Tests](https://github.com/sahnas/evs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sahnas/evs/actions/workflows/ci.yml)
 
 ![Logo En Voiture Simone](https://www.envoituresimone.com/packs/media/images/logo-799cc6b9049e7e56d573120ec02c5eb5.svg)
 
@@ -69,7 +69,8 @@ Bonne chance !
 
 ## TODO
 
-- Playwright tests
-- CICD
-- Deployment
-- Pagination front & back
+- [x] Playwright tests
+- [x] Lint and Jest tests
+- [x] CICD
+- [x] Deployment
+- [ ] Pagination front & back
