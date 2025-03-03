@@ -1,18 +1,19 @@
-name: CI Tests
+name: CI CD
 
 on:
   push:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 permissions:
   actions: read
   contents: read
 
 jobs:
-  quality-check:
-    name: Lint and Test
+  lint:
+    name: Lint Code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -36,6 +37,29 @@ jobs:
 
       - name: Run linting
         run: pnpm lint:all
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
         run: pnpm test:all
@@ -80,14 +104,115 @@ jobs:
             test-results/
           retention-days: 7
 
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      front-changed: ${{ steps.file-check.outputs.front_affected }}
+      back-changed: ${{ steps.file-check.outputs.back_affected }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check file changes
+        id: file-check
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            BASE_COMMIT=$(git rev-parse HEAD~1 || echo "")
+            HEAD_COMMIT=$(git rev-parse HEAD || echo "")
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }} --depth=1
+            BASE_COMMIT=origin/${{ github.base_ref }} 
+            HEAD_COMMIT=$(git rev-parse HEAD)
+          else
+            echo "front_affected=true" >> $GITHUB_OUTPUT
+            echo "back_affected=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ -z "$BASE_COMMIT" ] || [ -z "$HEAD_COMMIT" ]; then
+            echo "Cannot determine commits, deploying both services for safety"
+            echo "front_affected=true" >> $GITHUB_OUTPUT
+            echo "back_affected=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHANGED_FILES=$(git diff --name-only $BASE_COMMIT $HEAD_COMMIT || echo "")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          FRONT_AFFECTED=false
+          BACK_AFFECTED=false
+
+          if echo "$CHANGED_FILES" | grep -qE "^shared-models/|^packages/|package.json$|pnpm-lock.yaml$|pnpm-workspace.yaml$|nx.json$|tsconfig.base.json$|docker-compose.yml$"; then
+            echo "Shared files or configuration changed, affecting both services"
+            FRONT_AFFECTED=true
+            BACK_AFFECTED=true
+          else
+            if echo "$CHANGED_FILES" | grep -q "^front/"; then
+              echo "Frontend code modified"
+              FRONT_AFFECTED=true
+            fi
+            
+            if echo "$CHANGED_FILES" | grep -q "^back/"; then
+              echo "Backend code modified"
+              BACK_AFFECTED=true
+            fi
+          fi
+
+          echo "front_affected=$FRONT_AFFECTED" >> $GITHUB_OUTPUT
+          echo "back_affected=$BACK_AFFECTED" >> $GITHUB_OUTPUT
+
+          echo "Deployment decision:"
+          echo "Frontend affected: $FRONT_AFFECTED"
+          echo "Backend affected: $BACK_AFFECTED"
+
   deploy:
-    name: Deploy to Render
-    needs: [quality-check, e2e-tests]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor'
+    name: Evaluate and Execute Deployments
+    needs: [lint, unit-tests, e2e-tests, detect-changes]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Print deployment info
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          echo "Frontend changed: ${{ needs.detect-changes.outputs.front-changed }}"
+          echo "Backend changed: ${{ needs.detect-changes.outputs.back-changed }}"
+
       - name: Deploy Backend to Render
-        run: curl "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
+        if: needs.detect-changes.outputs.back-changed == 'true'
+        run: |
+          echo "::notice::Backend deployment in progress..."
+          curl "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
+          echo "Backend deployment successfully triggered."
 
       - name: Deploy Frontend to Render
-        run: curl "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}"
+        if: needs.detect-changes.outputs.front-changed == 'true'
+        run: |
+          echo "::notice::Frontend deployment in progress..."
+          curl "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}"
+          echo "Frontend deployment successfully triggered."
+
+      - name: No Deployment Needed
+        if: needs.detect-changes.outputs.front-changed == 'false' && needs.detect-changes.outputs.back-changed == 'false'
+        run: |
+          echo "::notice::No changes affect deployable services. Deployment skipped."
+          echo "Detected changes only involve non-critical files for deployment."
+
+      - name: Deployment Summary
+        run: |
+          echo "Deployment actions summary:"
+          if [[ "${{ needs.detect-changes.outputs.front-changed }}" == "true" ]]; then
+            echo "✅ Frontend: Deployment triggered"
+          else
+            echo "⏭️ Frontend: No relevant changes, deployment skipped"
+          fi
+
+          if [[ "${{ needs.detect-changes.outputs.back-changed }}" == "true" ]]; then
+            echo "✅ Backend: Deployment triggered"
+          else
+            echo "⏭️ Backend: No relevant changes, deployment skipped"
+          fi
