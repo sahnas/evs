@@ -10,7 +10,8 @@
     "start:prod": "pnpm run build:all && concurrently \"pnpm run start:back\" \"pnpm run start:front\"",
     "lint:all": "nx run-many --target=lint --all --no-cloud",
     "test:all": "nx run-many --target=test --all --no-cloud",
-    "test:e2e": "nx run-many --target=e2e --projects=front-e2e --no-cloud"
+    "test:e2e": "nx run-many --target=e2e --projects=front-e2e --no-cloud",
+    "prepare": "husky"
   },
   "type": "commonjs",
   "private": true,
@@ -72,6 +73,7 @@
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-playwright": "^1.6.2",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-environment-node": "^29.7.0",
