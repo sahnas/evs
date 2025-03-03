@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, retry, timer } from 'rxjs';
 import { ExamValidationService } from './exam-validation.service';
 import { environment } from '../../../environments/environment';
 import { Exam } from '../../models/exam.model';
@@ -28,10 +28,21 @@ export class ExamService {
 
     try {
       this.loadingSignal.set(true);
-      const data = await firstValueFrom(this.http.get<Exam[]>(this.apiUrl));
+      const data = await firstValueFrom(
+        this.http.get<Exam[]>(this.apiUrl).pipe(
+          retry({
+            count: 2,
+            delay: (retryAttempt) => timer(retryAttempt * 1000),
+          })
+        )
+      );
       this.examsSignal.set(data || []);
     } catch (error) {
       console.error('Erreur lors du chargement des examens:', error);
+      this.toastService.show(
+        'Impossible de charger les examens. Veuillez réessayer.',
+        'error'
+      );
     } finally {
       this.loadingSignal.set(false);
     }

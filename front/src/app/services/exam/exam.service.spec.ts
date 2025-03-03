@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -69,6 +69,79 @@ describe('ExamService', () => {
 
       expect(service.exams()).toEqual(mockExams);
     });
+
+    it('should retry failed HTTP requests', fakeAsync(() => {
+      const loadExamsPromise = service.loadExams();
+
+      let req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      expect(req.request.method).toBe('GET');
+      req.flush('Server error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      tick(1000);
+
+      req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      expect(req.request.method).toBe('GET');
+      req.flush('Server error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      tick(2000);
+
+      req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      expect(req.request.method).toBe('GET');
+
+      const mockExams = [
+        {
+          student: { first_name: 'Test', last_name: 'User' },
+          status: 'A organiser',
+        },
+      ];
+      req.flush(mockExams);
+
+      tick();
+
+      return loadExamsPromise.then(() => {
+        expect(service.exams()).toEqual(mockExams);
+        expect(toastServiceMock.show).not.toHaveBeenCalled(); // No error toast should be shown
+      });
+    }));
+
+    it('should show error toast after all retries fail', fakeAsync(() => {
+      const loadExamsPromise = service.loadExams();
+
+      let req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      req.flush('Server error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      tick(1000);
+      req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      req.flush('Server error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      tick(2000);
+      req = httpMock.expectOne(`${environment.apiBaseUrl}/exams`);
+      req.flush('Server error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      tick();
+
+      return loadExamsPromise.then(() => {
+        expect(toastServiceMock.show).toHaveBeenCalledWith(
+          'Impossible de charger les examens. Veuillez réessayer.',
+          'error'
+        );
+      });
+    }));
   });
 
   describe('createExam', () => {
